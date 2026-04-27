@@ -34,6 +34,10 @@ type Service struct {
 
 	// Metadata is an extension point to store useful information for the service.
 	Metadata map[string]string `json:"metadata,omitempty"`
+
+	// Parent service located in a different topology file. Ignored if no parent topology file is specified.
+	// Only allowed on top-level services (i.e. those listed directly under Services in the topology file, not nested within another service's Children).
+	ExternalParent *string `json:"externalParent,omitempty"`
 }
 
 // Entrypoint describes an individual pipeline in the tree.
@@ -60,6 +64,39 @@ func (t *Topology) Validate() error {
 		seen:       sets.New[string](),
 		duplicates: sets.New[string](),
 	}).validate(t)
+}
+
+func (t *Topology) AddChildTopology(path string) error {
+	childTopo, err := Load(path)
+	if err != nil {
+		return fmt.Errorf("failed to load child topology from %s: %w", path, err)
+	}
+	for _, svc := range childTopo.Services {
+		err = validateNoExternalParentInChildren(svc)
+		if err != nil {
+			return fmt.Errorf("failed to add child topology from %s: %w", path, err)
+		}
+		if svc.ExternalParent != nil {
+			externalParent, err := t.Lookup(*svc.ExternalParent)
+			if err != nil {
+				return fmt.Errorf("service %s in child topology %s references external parent %s that does not exist in the main topology: %w", svc.ServiceGroup, path, *svc.ExternalParent, err)
+			}
+			externalParent.Children = append(externalParent.Children, svc)
+		}
+	}
+	return nil
+}
+
+func validateNoExternalParentInChildren(svc Service) error {
+	for _, child := range svc.Children {
+		if child.ExternalParent != nil {
+			return fmt.Errorf("service %s has externalParent set but is a child of %s; externalParent is only allowed on top-level services", child.ServiceGroup, svc.ServiceGroup)
+		}
+		if err := validateNoExternalParentInChildren(child); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 type validator struct {

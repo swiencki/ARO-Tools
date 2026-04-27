@@ -1,6 +1,7 @@
 package topology
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -332,6 +333,124 @@ func TestDependency_Lookup(t *testing.T) {
 			}
 			if diff := cmp.Diff(build, testCase.expected); diff != "" {
 				t.Errorf("build: (-want got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestAddChildTopology(t *testing.T) {
+	externalParent := "Microsoft.Azure.ARO.HCP"
+	for _, testCase := range []struct {
+		name     string
+		parent   string
+		child    string
+		expected *Topology
+		err      bool
+	}{
+		{
+			name: "successfully adds child to existing parent",
+			parent: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: stuff`,
+			child: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP.Child
+  pipelinePath: bar
+  purpose: child stuff
+  externalParent: Microsoft.Azure.ARO.HCP
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child.Grandchild
+    pipelinePath: baz
+    purpose: grandchild stuff`,
+			expected: &Topology{
+				Services: []Service{
+					{
+						ServiceGroup: "Microsoft.Azure.ARO.HCP",
+						PipelinePath: "foo",
+						Purpose:      "stuff",
+						Children: []Service{
+							{
+								ServiceGroup:   "Microsoft.Azure.ARO.HCP.Child",
+								PipelinePath:   "bar",
+								Purpose:        "child stuff",
+								ExternalParent: &externalParent,
+								Children: []Service{
+									{
+										ServiceGroup: "Microsoft.Azure.ARO.HCP.Child.Grandchild",
+										PipelinePath: "baz",
+										Purpose:      "grandchild stuff",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			err: false,
+		},
+		{
+			name: "errors when external parent does not exist",
+			parent: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: stuff`,
+			child: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP.Child
+  pipelinePath: bar
+  purpose: child stuff
+  externalParent: Microsoft.Azure.ARO.HCP.DoesNotExist`,
+			err: true,
+		},
+		{
+			name: "errors when a child service has externalParent set",
+			parent: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP
+  pipelinePath: foo
+  purpose: stuff`,
+			child: `services:
+- serviceGroup: Microsoft.Azure.ARO.HCP.Child
+  pipelinePath: bar
+  purpose: child stuff
+  externalParent: Microsoft.Azure.ARO.HCP
+  children:
+  - serviceGroup: Microsoft.Azure.ARO.HCP.Child.Grandchild
+    pipelinePath: baz
+    purpose: grandchild stuff
+    externalParent: Microsoft.Azure.ARO.HCP`,
+			err: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			var parentTopo Topology
+			if err := yaml.Unmarshal([]byte(testCase.parent), &parentTopo); err != nil {
+				t.Fatalf("failed to unmarshal parent: %s", err)
+			}
+			childFile, err := os.CreateTemp("", "child-topology-*.yaml")
+			if err != nil {
+				t.Fatalf("failed to create temp file: %s", err)
+			}
+			defer func() {
+				if err := os.Remove(childFile.Name()); err != nil {
+					t.Errorf("failed to remove temp file: %v", err)
+				}
+			}()
+			if _, err := childFile.WriteString(testCase.child); err != nil {
+				t.Fatalf("failed to write child topology: %s", err)
+			}
+			if err := childFile.Close(); err != nil {
+				t.Fatalf("failed to close child topology file: %s", err)
+			}
+			err = parentTopo.AddChildTopology(childFile.Name())
+			if err == nil && testCase.err {
+				t.Errorf("expected error, got none")
+			}
+			if err != nil && !testCase.err {
+				t.Errorf("expected no error, got: %v", err)
+			}
+			if testCase.expected != nil {
+				if diff := cmp.Diff(testCase.expected, &parentTopo); diff != "" {
+					t.Errorf("combined topology mismatch (-want +got):\n%s", diff)
+				}
 			}
 		})
 	}
