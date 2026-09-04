@@ -1,5 +1,7 @@
 package main
 
+import "strings"
+
 const (
 	AzureTenantName              = "azure"
 	GenevaActionsHomeDstsPrimary = "primary"
@@ -13,12 +15,13 @@ func Sanitize(inputs map[string]CentralConfig) SanitizedConfig {
 		regions := map[string]SanitizedRegionConfig{}
 		for _, geo := range cfg.Geographies {
 			for _, region := range geo.Regions {
-				regions[region.Name] = SanitizedRegionConfig{
-					Geography:             geo.Name,
-					GeoShortID:            geo.Settings.GeoShortID,
-					AvailabilityZoneCount: region.Settings.AvailabilityZoneCount,
-					RegionShortName:       region.Settings.RegionShortName,
-					RegionFriendlyName:    region.Settings.RegionFriendlyName,
+				regions[strings.ToLower(region.Name)] = SanitizedRegionConfig{
+					Geography:                 geo.Name,
+					GeoShortID:                geo.Settings.GeoShortID,
+					AvailabilityZoneCount:     region.Settings.AvailabilityZoneCount,
+					AvailabilityZoneLiveCount: region.Settings.AvailabilityZoneLiveCount,
+					RegionShortName:           region.Settings.RegionShortName,
+					RegionFriendlyName:        region.Settings.RegionFriendlyName,
 				}
 			}
 		}
