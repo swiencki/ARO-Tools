@@ -183,9 +183,11 @@ environment and complete geography set must be provided explicitly:
 - `--adx-integrations-target-resource-id`: Optional target resource ID.
 
 Discovery fails closed before reading or changing integration fabrics when a
-requested geography is missing, duplicated, untagged, or not fully
-provisioned. Dry-run performs discovery and planning but does not create,
-update, or delete child resources.
+requested geography is missing, duplicated, or not fully provisioned, or when
+any discovered managed Kusto cluster is missing its `aroHCPGeoShortId` tag
+(an untagged cluster cannot be attributed to a geography, so it fails closed
+regardless of the requested allowlist). Dry-run performs discovery and
+planning but does not create, update, or delete child resources.
 
 The scenario and target resource ID are Resource Provider contract inputs.
 They are intentionally not defaulted or inferred while that contract is being
