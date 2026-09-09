@@ -781,6 +781,9 @@
             "crossTenantSecurityGroup": {
               "$ref": "#/definitions/value"
             },
+            "discoveryTagKey": {
+              "$ref": "#/definitions/value"
+            },
             "timeout": {
               "$ref": "#/definitions/durationString"
             },
@@ -816,6 +819,9 @@
                 "true",
                 "false"
               ]
+            },
+            "discoveryTagKey": {
+              "type": "string"
             },
             "timeout": {
               "$ref": "#/definitions/durationString"

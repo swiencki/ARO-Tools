@@ -133,7 +133,7 @@ func (o *ValidatedReconcileOptions) Complete(ctx context.Context) (*CompletedRec
 		return nil, fmt.Errorf("failed to create Grafana client: %w", err)
 	}
 
-	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts)
+	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts, o.DiscoveryTagKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}
