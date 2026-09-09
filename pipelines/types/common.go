@@ -805,14 +805,16 @@ const StepActionGrafanaManage = "GrafanaManage"
 type GrafanaManageStep struct {
 	StepMeta `json:",inline"`
 
-	GrafanaName              Value  `json:"grafanaName"`
-	Location                 Value  `json:"location"`
-	SKU                      Value  `json:"sku,omitempty"`
-	MajorVersion             Value  `json:"majorVersion,omitempty"`
-	ZoneRedundancy           Value  `json:"zoneRedundancy,omitempty"`
-	PublicNetworkAccess      Value  `json:"publicNetworkAccess,omitempty"`
-	CrossTenantSecurityGroup Value  `json:"crossTenantSecurityGroup,omitempty"`
-	Timeout                  string `json:"timeout,omitempty"`
+	GrafanaName              Value `json:"grafanaName"`
+	Location                 Value `json:"location"`
+	SKU                      Value `json:"sku,omitempty"`
+	MajorVersion             Value `json:"majorVersion,omitempty"`
+	ZoneRedundancy           Value `json:"zoneRedundancy,omitempty"`
+	PublicNetworkAccess      Value `json:"publicNetworkAccess,omitempty"`
+	CrossTenantSecurityGroup Value `json:"crossTenantSecurityGroup,omitempty"`
+
+	DiscoveryTagKey Value  `json:"discoveryTagKey,omitempty"`
+	Timeout         string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
@@ -824,7 +826,7 @@ func (s *GrafanaManageStep) Description() string {
 
 func (s *GrafanaManageStep) RequiredInputs() []StepDependency {
 	var deps []StepDependency
-	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.PublicNetworkAccess, s.CrossTenantSecurityGroup} {
+	for _, val := range []Value{s.GrafanaName, s.Location, s.SKU, s.MajorVersion, s.ZoneRedundancy, s.PublicNetworkAccess, s.CrossTenantSecurityGroup, s.DiscoveryTagKey} {
 		if val.Input != nil {
 			deps = append(deps, val.Input.StepDependency)
 		}
@@ -848,7 +850,10 @@ type GrafanaDatasourcesStep struct {
 
 	// SkipSync indicates whether to skip syncing datasources. It is intended for prow jobs to skip syncing datasources.
 	SkipSync string `json:"skipSync,omitempty"`
-	Timeout  string `json:"timeout,omitempty"`
+
+	DiscoveryTagKey string `json:"discoveryTagKey,omitempty"`
+
+	Timeout string `json:"timeout,omitempty"`
 
 	// IdentityFrom specifies the managed identity with which this deployment will run in Ev2.
 	IdentityFrom Input `json:"identityFrom,omitempty"`
