@@ -117,13 +117,12 @@ func TestBindReconcileOptionsADXFlags(t *testing.T) {
 
 func TestValidateADXOptions(t *testing.T) {
 	newOptions := func() *RawReconcileOptions {
+		baseOpts := base.DefaultBaseOptions()
+		baseOpts.SubscriptionID = "subscription-id"
+		baseOpts.ResourceGroup = "resource-group"
+		baseOpts.GrafanaName = "grafana"
 		return &RawReconcileOptions{
-			BaseOptions: &base.BaseOptions{
-				SubscriptionID: "subscription-id",
-				ResourceGroup:  "resource-group",
-				GrafanaName:    "grafana",
-				OutputFormat:   "table",
-			},
+			BaseOptions:         baseOpts,
 			Location:            "eastus",
 			SKU:                 "Standard",
 			ZoneRedundancy:      "Disabled",

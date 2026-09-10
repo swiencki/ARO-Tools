@@ -108,7 +108,7 @@ func (o *ValidatedCleanDatasourcesOptions) Complete(ctx context.Context) (*Compl
 		return nil, fmt.Errorf("failed to create managed Prometheus client: %w", err)
 	}
 
-	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts)
+	resourceGraphClient, err := azure.NewResourceGraphDiscoveryClient(cred, clientOpts, o.DiscoveryTagKey)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Resource Graph discovery client: %w", err)
 	}

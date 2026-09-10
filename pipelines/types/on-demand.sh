@@ -18,6 +18,14 @@ retry() {
     done
 }
 
+get_acr_domain_suffix() {
+    local suffix
+    if ! suffix="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"; then
+        return 1
+    fi
+    printf '%s' "${suffix}"
+}
+
 copyImageFromRegistry() {
     # shortcut mirroring if the source registry is the same as the target ACR
     REQUIRED_REGISTRY_VARS=("TARGET_ACR" "SOURCE_REGISTRY")
@@ -27,7 +35,7 @@ copyImageFromRegistry() {
             exit 1
         fi
     done
-    ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
+    ACR_DOMAIN_SUFFIX="$(retry 5 get_acr_domain_suffix)"
     if [[ "${SOURCE_REGISTRY}" == "${TARGET_ACR}${ACR_DOMAIN_SUFFIX}" ]]; then
         echo "Source and target registry are the same. No mirroring needed."
         exit 0
@@ -68,10 +76,14 @@ copyImageFromRegistry() {
 
         if [[ "${IS_CI_REGISTRY}" == "true" ]]; then
             echo "Setting up registry authentication for CI source registry."
-            oc registry login --to "${AUTH_JSON}"
+            retry 5 oc registry login --to "${AUTH_JSON}"
         else
             echo "Fetch pull secret for source registry ${SOURCE_REGISTRY} from ${PULL_SECRET_KV} KV."
-            az keyvault secret download --vault-name "${PULL_SECRET_KV}" --name "${PULL_SECRET}" -e base64 --file "${AUTH_JSON}"
+            retry 5 az keyvault secret download \
+                --vault-name "${PULL_SECRET_KV}" \
+                --name "${PULL_SECRET}" \
+                -e base64 \
+                --file "${AUTH_JSON}"
         fi
     fi
 
@@ -115,7 +127,9 @@ copyImageFromRegistry() {
     TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${DIGEST_NO_PREFIX}"
     echo "Mirroring image ${SRC_IMAGE} to ${TARGET_IMAGE}."
     echo "The image will still be available under it's original digest ${DIGEST} in the target registry."
-    oras cp "${SRC_IMAGE}" "${TARGET_IMAGE}" --from-registry-config "${AUTH_JSON}" --to-registry-config "${AUTH_JSON}"
+    retry 5 oras cp "${SRC_IMAGE}" "${TARGET_IMAGE}" \
+        --from-registry-config "${AUTH_JSON}" \
+        --to-registry-config "${AUTH_JSON}"
 }
 
 copyImageFromOciLayout() {
@@ -155,9 +169,9 @@ copyImageFromOciLayout() {
     exit 1
     fi
 
-    echo "✅ build_tag is: $BUILD_TAG"    
+    echo "✅ build_tag is: $BUILD_TAG"
 
-    ACR_DOMAIN_SUFFIX="$(az cloud show --query "suffixes.acrLoginServerEndpoint" --output tsv)"
+    ACR_DOMAIN_SUFFIX="$(retry 5 get_acr_domain_suffix)"
     TARGET_ACR_LOGIN_SERVER="${TARGET_ACR}${ACR_DOMAIN_SUFFIX}"
 
     echo "Getting the ACR access token."
@@ -175,7 +189,7 @@ copyImageFromOciLayout() {
       oras login "$TARGET_ACR_LOGIN_SERVER" --username "$USERNAME" --password-stdin <<< "$PASSWORD"
     }
     retry 5 oras_login_oci
-   
+
     # Check for DRY_RUN
     if [ "${DRY_RUN:-false}" == "true" ]; then
         echo "DRY_RUN is enabled. Exiting without making changes."
@@ -184,7 +198,9 @@ copyImageFromOciLayout() {
 
     # copy image from OCI layout to ACR
     TARGET_IMAGE="${TARGET_ACR_LOGIN_SERVER}/${REPOSITORY}:${BUILD_TAG}"
-    oras cp --from-oci-layout "${IMAGE_TAR_FILE}:${BUILD_TAG}" "${TARGET_IMAGE}"
+    retry 5 oras cp \
+        --from-oci-layout "${IMAGE_TAR_FILE}:${BUILD_TAG}" \
+        "${TARGET_IMAGE}"
 }
 
 if [[ -z "${IMAGE_TAR_FILE_NAME:-}" ]]; then

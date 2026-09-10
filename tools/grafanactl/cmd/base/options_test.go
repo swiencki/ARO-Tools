@@ -174,3 +174,13 @@ func TestResolveCloudConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateBaseOptionsRejectsInvalidDiscoveryTagKey(t *testing.T) {
+	opts := DefaultBaseOptions()
+	opts.GrafanaResourceID = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.Dashboard/grafana/name"
+	opts.DiscoveryTagKey = "x'] or '1'=='1"
+
+	if _, err := ValidateBaseOptions(opts); err == nil {
+		t.Fatal("expected error for invalid discovery tag key")
+	}
+}

@@ -68,6 +68,7 @@ func (p *MonitorWorkspaceClient) GetAllMonitorWorkspaces(ctx context.Context) ([
 // ResourceGraphDiscoveryClient discovers Azure resources across subscriptions using Azure Resource Graph.
 type ResourceGraphDiscoveryClient struct {
 	client *armresourcegraph.Client
+	tagKey string
 }
 
 // KustoCluster identifies a managed Kusto cluster and its geography tag.
@@ -78,7 +79,9 @@ type KustoCluster struct {
 }
 
 // NewResourceGraphDiscoveryClient creates a new ResourceGraphDiscoveryClient.
-func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions *arm.ClientOptions) (*ResourceGraphDiscoveryClient, error) {
+// tagKey selects which resource tag marks an Azure Monitor Workspace as a
+// discovery target
+func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions *arm.ClientOptions, tagKey string) (*ResourceGraphDiscoveryClient, error) {
 	client, err := armresourcegraph.NewClient(cred, clientOptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Resource Graph client: %w", err)
@@ -86,13 +89,14 @@ func NewResourceGraphDiscoveryClient(cred azcore.TokenCredential, clientOptions 
 
 	return &ResourceGraphDiscoveryClient{
 		client: client,
+		tagKey: tagKey,
 	}, nil
 }
 
 // DiscoverMonitorWorkspaceIDs returns resource IDs of all Azure Monitor Workspaces
-// across all accessible subscriptions that have the aroHCPPurpose tag set.
+// across all accessible subscriptions that have the configured discovery tag set.
 func (c *ResourceGraphDiscoveryClient) DiscoverMonitorWorkspaceIDs(ctx context.Context) ([]string, error) {
-	query := "resources | where type =~ 'microsoft.monitor/accounts' | where isnotempty(tags['aroHCPPurpose']) and properties.provisioningState == 'Succeeded' | project id"
+	query := fmt.Sprintf("resources | where type =~ 'microsoft.monitor/accounts' | where isnotempty(tags['%s']) and properties.provisioningState == 'Succeeded' | project id", c.tagKey)
 	format := armresourcegraph.ResultFormatObjectArray
 
 	var ids []string

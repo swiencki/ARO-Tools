@@ -17,6 +17,7 @@ package base
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,6 +39,9 @@ type BaseOptions struct {
 	Timeout           time.Duration
 	ARMEndpoint       string
 	AADAuthority      string
+	// DiscoveryTagKey is the resource tag that marks an Azure Monitor Workspace
+	// as a discovery target across subscriptions. Defaults to aroHCPPurpose.
+	DiscoveryTagKey string
 }
 
 // CompletedBaseOptions represents base options that have been validated and resolved
@@ -50,8 +54,9 @@ type CompletedBaseOptions struct {
 // DefaultBaseOptions returns a new BaseOptions with default values
 func DefaultBaseOptions() *BaseOptions {
 	return &BaseOptions{
-		OutputFormat: "table",
-		Timeout:      30 * time.Minute,
+		OutputFormat:    "table",
+		Timeout:         30 * time.Minute,
+		DiscoveryTagKey: "aroHCPPurpose",
 	}
 }
 
@@ -67,9 +72,15 @@ func BindBaseOptions(opts *BaseOptions, cmd *cobra.Command) error {
 	flags.DurationVar(&opts.Timeout, "timeout", opts.Timeout, "Timeout for the operation")
 	flags.StringVar(&opts.ARMEndpoint, "arm-endpoint", opts.ARMEndpoint, "Azure Resource Manager endpoint for the target cloud. Defaults to the public cloud when unset")
 	flags.StringVar(&opts.AADAuthority, "aad-authority", opts.AADAuthority, "Microsoft Entra ID (AAD) authority for the target cloud. Defaults to the public cloud when unset")
+	flags.StringVar(&opts.DiscoveryTagKey, "discovery-tag-key", opts.DiscoveryTagKey, "resource tag key that marks an Azure Monitor Workspace as a discovery target (default aroHCPPurpose)")
 
 	return nil
 }
+
+// tagKeyPattern restricts a caller-supplied discovery tag key to a safe
+// identifier charset before it is interpolated into the Resource Graph
+// discovery query, closing off a KQL-injection surface.
+var tagKeyPattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]*$`)
 
 // ValidateBaseOptions performs validation on the base options
 func ValidateBaseOptions(opts *BaseOptions) (*CompletedBaseOptions, error) {
@@ -92,6 +103,10 @@ func ValidateBaseOptions(opts *BaseOptions) (*CompletedBaseOptions, error) {
 	// Validate output format
 	if opts.OutputFormat != "table" && opts.OutputFormat != "json" {
 		return nil, fmt.Errorf("output format must be 'table' or 'json', got: %s", opts.OutputFormat)
+	}
+
+	if !tagKeyPattern.MatchString(opts.DiscoveryTagKey) {
+		return nil, fmt.Errorf("invalid discovery tag key %q; must match %s", opts.DiscoveryTagKey, tagKeyPattern.String())
 	}
 
 	cloudConfig, err := resolveCloudConfig(opts.ARMEndpoint, opts.AADAuthority)

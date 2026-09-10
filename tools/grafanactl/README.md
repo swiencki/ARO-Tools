@@ -52,6 +52,14 @@ the public Azure cloud is used. Each flag accepts either a hostname or a full
 - `--aad-authority` - Microsoft Entra ID authority (e.g.
   `login.microsoftonline.us` for Fairfax).
 
+Commands that discover Azure Monitor Workspaces across subscriptions (`clean`,
+`manage reconcile`, `modify datasource reconcile`) select candidates by
+resource tag:
+
+- `--discovery-tag-key` - resource tag key that marks an Azure Monitor
+  Workspace as a discovery target. Defaults to `aroHCPPurpose`.
+
+
 ### List Commands
 
 #### List Datasources
